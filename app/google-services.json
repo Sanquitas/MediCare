@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "876625505274",
+    "project_id": "medicare-cad30",
+    "storage_bucket": "medicare-cad30.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:876625505274:android:4f0e74a5d8eca9dede9243",
+        "android_client_info": {
+          "package_name": "com.example.medicare"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCNsjrFoX76vXX6qeAAhPUGgzj91x3aK1k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

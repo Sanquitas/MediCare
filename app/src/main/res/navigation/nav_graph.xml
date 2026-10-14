@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/loginFragment">
+
+    <fragment
+        android:id="@+id/loginFragment"
+        android:name="com.example.medicare.presentation.auth.LoginFragment"
+        android:label="Login">
+
+        <action
+            android:id="@+id/action_login_to_patient"
+            app:destination="@id/patientDashboardFragment"
+            app:popUpTo="@id/loginFragment"
+            app:popUpToInclusive="true" />
+
+        <action
+            android:id="@+id/action_login_to_admin"
+            app:destination="@id/adminDashboardFragment"
+            app:popUpTo="@id/loginFragment"
+            app:popUpToInclusive="true" />
+
+        <action
+            android:id="@+id/action_login_to_register"
+            app:destination="@id/registerFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/registerFragment"
+        android:name="com.example.medicare.presentation.auth.RegisterFragment"
+        android:label="Registro" />
+
+    <fragment
+        android:id="@+id/patientDashboardFragment"
+        android:name="com.example.medicare.presentation.patient.PatientDashboardFragment"
+        android:label="Panel Paciente">
+
+        <action
+            android:id="@+id/action_patient_to_capture"
+            app:destination="@id/captureFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/adminDashboardFragment"
+        android:name="com.example.medicare.presentation.admin.AdminDashboardFragment"
+        android:label="Panel Administrador" />
+
+    <fragment
+        android:id="@+id/captureFragment"
+        android:name="com.example.medicare.presentation.capture.CaptureFragment"
+        android:label="Confirmar Toma" />
+
+</navigation>
