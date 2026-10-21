@@ -24,13 +24,11 @@ class RegisterFragment : Fragment() {
                     viewModel = viewModel,
                     onBackToLogin = {
                         viewModel.clearError()
-                        // Usamos el Navigator para regresar (destruyendo este fragment)
                         findNavController().popBackStack()
                     },
                     onRegisterSuccess = {
                         Toast.makeText(context, "Registro exitoso. Ahora inicia sesión.", Toast.LENGTH_LONG).show()
                         viewModel.clearError()
-                        // Regresamos al Login
                         findNavController().popBackStack()
                     }
                 )

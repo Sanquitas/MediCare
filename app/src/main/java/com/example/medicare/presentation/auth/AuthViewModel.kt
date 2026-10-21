@@ -2,15 +2,16 @@ package com.example.medicare.presentation.auth
 
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
+import com.example.medicare.data.remote.AuthRepository
 
 class AuthViewModel : ViewModel() {
-    private val auth = FirebaseAuth.getInstance()
-    private val db = FirebaseFirestore.getInstance()
+
+    // Conectamos el repositorio de datos
+    private val repository = AuthRepository()
 
     var isLoading = mutableStateOf(false)
         private set
+
     var errorMessage = mutableStateOf<String?>(null)
         private set
 
@@ -23,66 +24,53 @@ class AuthViewModel : ViewModel() {
         isLoading.value = true
         errorMessage.value = null
 
-        auth.signInWithEmailAndPassword(email.trim(), pass.trim())
-            .addOnSuccessListener { result ->
-                val userId = result.user?.uid ?: return@addOnSuccessListener
-
-                db.collection("usuarios").document(userId).get()
-                    .addOnSuccessListener { doc ->
-                        isLoading.value = false
-                        val rolEnBd = doc.getString("rol") ?: "paciente"
-
-                        if (rolEnBd == selectedRole) {
-                            onNavigate(rolEnBd)
-                        } else {
-                            errorMessage.value = "El usuario no cuenta con el rol de ${if (selectedRole == "admin") "Administrador" else "Paciente"}"
-                            auth.signOut()
-                        }
-                    }
-                    .addOnFailureListener {
-                        isLoading.value = false
-                        errorMessage.value = "Error al verificar el rol del usuario"
-                    }
-            }
-            .addOnFailureListener { e ->
+        // Llamamos al repositorio en lugar de a Firebase directamente
+        repository.loginUser(
+            email = email,
+            pass = pass,
+            onSuccess = { realRole ->
                 isLoading.value = false
-                errorMessage.value = e.localizedMessage ?: "Error al iniciar sesión"
+                val rolElegidoLimpio = selectedRole.trim().lowercase()
+
+                val esValidoAdmin = (realRole == "admin" || realRole == "cuidador" || realRole == "administrador") && (rolElegidoLimpio == "admin")
+                val esValidoPaciente = (realRole == "paciente") && (rolElegidoLimpio == "paciente")
+
+                if (esValidoAdmin) onNavigate("admin")
+                else if (esValidoPaciente) onNavigate("patient")
+                else errorMessage.value = "El rol seleccionado no corresponde a esta cuenta."
+            },
+            onError = { errorMsg ->
+                isLoading.value = false
+                errorMessage.value = errorMsg
             }
+        )
     }
 
-    fun registrar(nombre: String, email: String, pass: String, selectedRole: String, onSuccess: () -> Unit) {
-        if (nombre.isBlank() || email.isBlank() || pass.isBlank()) {
-            errorMessage.value = "Por favor, completa todos los campos"
+    fun register(
+        email: String, pass: String, nombre: String, rol: String,
+        tipoSangre: String, edad: String, contactoEmergencia: String,
+        onSuccess: () -> Unit
+    ) {
+        if (email.isBlank() || pass.isBlank() || nombre.isBlank()) {
+            errorMessage.value = "Llena los campos obligatorios"
             return
         }
 
         isLoading.value = true
         errorMessage.value = null
 
-        auth.createUserWithEmailAndPassword(email.trim(), pass.trim())
-            .addOnSuccessListener { result ->
-                val userId = result.user?.uid ?: return@addOnSuccessListener
-
-                val usuarioData = hashMapOf(
-                    "nombre" to nombre,
-                    "email" to email.trim(),
-                    "rol" to selectedRole
-                )
-
-                db.collection("usuarios").document(userId).set(usuarioData)
-                    .addOnSuccessListener {
-                        isLoading.value = false
-                        onSuccess()
-                    }
-                    .addOnFailureListener { e ->
-                        isLoading.value = false
-                        errorMessage.value = "Se creó el usuario pero hubo un error al guardar los datos: ${e.localizedMessage}"
-                    }
-            }
-            .addOnFailureListener { e ->
+        repository.registerUser(
+            email = email, pass = pass, nombre = nombre, rol = rol,
+            tipoSangre = tipoSangre, edad = edad, contactoEmergencia = contactoEmergencia,
+            onSuccess = {
                 isLoading.value = false
-                errorMessage.value = e.localizedMessage ?: "Error al registrar el usuario"
+                onSuccess()
+            },
+            onError = { errorMsg ->
+                isLoading.value = false
+                errorMessage.value = errorMsg
             }
+        )
     }
 
     fun clearError() {

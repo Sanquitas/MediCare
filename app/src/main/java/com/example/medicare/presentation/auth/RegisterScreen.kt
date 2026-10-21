@@ -2,11 +2,16 @@ package com.example.medicare.presentation.auth
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,6 +23,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegisterScreen(
     viewModel: AuthViewModel,
@@ -27,7 +33,20 @@ fun RegisterScreen(
     var nombre by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var selectedRole by remember { mutableStateOf("paciente") } // "paciente" o "admin"
+    var selectedRole by remember { mutableStateOf("paciente") }
+
+    // Estados para los campos médicos
+    var edad by remember { mutableStateOf("") }
+    var tipoSangre by remember { mutableStateOf("") }
+    var contactoEmergencia by remember { mutableStateOf("") }
+
+    // Estados para expandir/contraer los menús desplegables
+    var expandedEdad by remember { mutableStateOf(false) }
+    var expandedSangre by remember { mutableStateOf(false) }
+
+    // Listas de opciones
+    val opcionesSangre = listOf("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", "Desconocido")
+    val opcionesEdad = (1..110).map { it.toString() } // Genera una lista del "1" al "110"
 
     val isLoading = viewModel.isLoading.value
     val errorMessage = viewModel.errorMessage.value
@@ -37,15 +56,14 @@ fun RegisterScreen(
             .fillMaxSize()
             .background(
                 brush = Brush.verticalGradient(
-                    colors = listOf(Color(0xFF0D5C75), Color(0xFF1E824C)) // Gradiente institucional
+                    colors = listOf(Color(0xFF0D5C75), Color(0xFF1E824C))
                 )
             )
     ) {
-        // Cabecera superior sutil
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(0.25f),
+                .weight(0.20f),
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -63,18 +81,18 @@ fun RegisterScreen(
             }
         }
 
-        // Formulario Blanco
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(0.75f),
+                .weight(0.80f),
             shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(24.dp),
+                    .padding(24.dp)
+                    .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Top
             ) {
@@ -122,9 +140,97 @@ fun RegisterScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Menú desplegable para la EDAD
+                ExposedDropdownMenuBox(
+                    expanded = expandedEdad,
+                    onExpandedChange = { expandedEdad = !expandedEdad }
+                ) {
+                    OutlinedTextField(
+                        value = edad,
+                        onValueChange = { },
+                        readOnly = true, // Evita que escriban texto libre
+                        label = { Text("Edad") },
+                        leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null, tint = Color(0xFF0D5C75)) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedEdad) },
+                        shape = RoundedCornerShape(50.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF0D5C75),
+                            unfocusedBorderColor = Color(0xFF8BAEBD)
+                        ),
+                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedEdad,
+                        onDismissRequest = { expandedEdad = false }
+                    ) {
+                        opcionesEdad.forEach { seleccion ->
+                            DropdownMenuItem(
+                                text = { Text(seleccion) },
+                                onClick = {
+                                    edad = seleccion
+                                    expandedEdad = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Menú desplegable para el TIPO DE SANGRE
+                ExposedDropdownMenuBox(
+                    expanded = expandedSangre,
+                    onExpandedChange = { expandedSangre = !expandedSangre }
+                ) {
+                    OutlinedTextField(
+                        value = tipoSangre,
+                        onValueChange = { },
+                        readOnly = true, // Evita que escriban texto libre
+                        label = { Text("Tipo de Sangre") },
+                        leadingIcon = { Icon(Icons.Default.Favorite, contentDescription = null, tint = Color(0xFF0D5C75)) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedSangre) },
+                        shape = RoundedCornerShape(50.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF0D5C75),
+                            unfocusedBorderColor = Color(0xFF8BAEBD)
+                        ),
+                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedSangre,
+                        onDismissRequest = { expandedSangre = false }
+                    ) {
+                        opcionesSangre.forEach { seleccion ->
+                            DropdownMenuItem(
+                                text = { Text(seleccion) },
+                                onClick = {
+                                    tipoSangre = seleccion
+                                    expandedSangre = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = contactoEmergencia,
+                    onValueChange = { contactoEmergencia = it },
+                    label = { Text("Contacto de Emergencia") },
+                    leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null, tint = Color(0xFF0D5C75)) },
+                    shape = RoundedCornerShape(50.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFF0D5C75),
+                        unfocusedBorderColor = Color(0xFF8BAEBD)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Selector de Rol
                 Text("Selecciona tu rol:", fontWeight = FontWeight.Bold, color = Color(0xFF0D5C75))
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
@@ -161,7 +267,19 @@ fun RegisterScreen(
                 } else {
                     Button(
                         onClick = {
-                            viewModel.registrar(nombre, email, password, selectedRole, onRegisterSuccess)
+                            // ESTANDARIZAMOS: Siempre guardamos en minúsculas exactas para evitar fallos
+                            val rolFormateado = if (selectedRole == "paciente") "paciente" else "admin"
+
+                            viewModel.register(
+                                email = email,
+                                pass = password,
+                                nombre = nombre,
+                                rol = rolFormateado, // Guarda "paciente" o "admin" de forma limpia
+                                tipoSangre = tipoSangre,
+                                edad = edad,
+                                contactoEmergencia = contactoEmergencia,
+                                onSuccess = onRegisterSuccess
+                            )
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF137A7F)),
                         shape = RoundedCornerShape(50.dp),
@@ -175,6 +293,8 @@ fun RegisterScreen(
                     TextButton(onClick = onBackToLogin) {
                         Text("¿Ya tienes cuenta? Inicia Sesión", color = Color(0xFF0D5C75))
                     }
+
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
             }
         }

@@ -7,6 +7,8 @@ import android.view.ViewGroup
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -20,8 +22,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.fragment.findNavController
 import com.example.medicare.R
+import com.example.medicare.domain.models.Medicamento
+import com.example.medicare.presentation.profile.AjustesScreen
+import com.example.medicare.presentation.profile.ProfileViewModel
+import com.example.medicare.presentation.profile.ProfileScreen
 
 class PatientDashboardFragment : Fragment() {
     override fun onCreateView(
@@ -31,7 +38,13 @@ class PatientDashboardFragment : Fragment() {
         return ComposeView(requireContext()).apply {
             setContent {
                 MaterialTheme {
-                    // Estado para controlar qué pestaña está activa (0=Inicio, 1=Historial, 2=Perfil, 3=Sincronizar)
+                    val viewModel: PatientViewModel = viewModel()
+                    val profileViewModel: ProfileViewModel = viewModel()
+
+                    val perfil = viewModel.patientData.value
+                    val medicamentos = viewModel.medicamentosDelDia
+                    val isLoading = viewModel.isLoading.value
+
                     var selectedTab by remember { mutableStateOf(0) }
 
                     Scaffold(
@@ -65,82 +78,38 @@ class PatientDashboardFragment : Fragment() {
                         }
                     ) { paddingValues ->
                         Box(modifier = Modifier.padding(paddingValues)) {
-                            // Intercambiador de Vistas
                             when (selectedTab) {
-                                0 -> InicioScreen { findNavController().navigate(R.id.action_patient_to_capture) }
-                                1 -> HistorialScreen()
-                                2 -> ProfileScreen()
+                                0 -> InicioScreen(
+                                    nombrePaciente = perfil.nombre,
+                                    medicamentos = medicamentos,
+                                    isLoading = isLoading,
+                                    onNavigateToCapture = { medicamentoId ->
+                                        val bundle = Bundle().apply { putString("MEDICAMENTO_ID", medicamentoId) }
+                                        findNavController().navigate(R.id.action_patient_to_capture, bundle)
+                                    },
+                                    onAgregarMedicamento = { nombre, dosis, hora, frecuencia, cantidad ->
+                                        viewModel.agregarMedicamento(nombre, dosis, hora, frecuencia, cantidad)
+                                    },
+                                    verificarHora = { tiempoDesbloqueo -> System.currentTimeMillis() >= tiempoDesbloqueo },
+                                    onOmitirMedicamento = { id -> viewModel.omitirMedicamento(id) }
+                                )
+                                1 -> HistorialScreen(medicamentos = medicamentos)
+                                2 -> ProfileScreen(
+                                    viewModel = profileViewModel,
+                                    onNavigateBack = { selectedTab = 0 },
+                                    onLogout = {
+                                        findNavController().navigate(R.id.action_login_to_patient)
+                                        findNavController().popBackStack()
+                                    },
+                                    onTratamientosClick = { selectedTab = 0 },
+                                    onAjustesClick = { selectedTab = 4 },
+                                    onSyncClick = { selectedTab = 3 }
+                                )
                                 3 -> SyncScreen()
+                                4 -> AjustesScreen(onNavigateBack = { selectedTab = 2 })
                             }
                         }
                     }
-                }
-            }
-        }
-    }
-}
-
-// Extraímos el "Inicio" a su propio Composable
-@Composable
-fun InicioScreen(onNavigateToCapture: () -> Unit) {
-    val blueHeader = Color(0xFF2C699A)
-    val greenOffline = Color(0xFF4CAF50)
-    val tealButton = Color(0xFF137A7F)
-
-    Column(modifier = Modifier.fillMaxSize().background(Color(0xFFFAFAFA))) {
-        Row(modifier = Modifier.fillMaxWidth().background(blueHeader).padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Column {
-                    Text("MediCare", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                    Text("Mi Agenda de Hoy", color = Color.White, fontSize = 12.sp)
-                }
-            }
-            Icon(Icons.Default.AccountCircle, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
-        }
-        Row(modifier = Modifier.fillMaxWidth().background(greenOffline).padding(4.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-            Text("Modo Local (offline)", color = Color.White, fontSize = 12.sp)
-            Spacer(modifier = Modifier.width(4.dp))
-            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-        }
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("Lunes, 12 de Octubre", color = Color.Gray, fontSize = 14.sp)
-            Text("¡Hola, Jesús!", fontWeight = FontWeight.Bold, fontSize = 24.sp, color = Color.Black)
-            Spacer(modifier = Modifier.height(16.dp))
-            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFD4EDDA)), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Column {
-                        Text("Paracetamol", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        Text("08:00 AM • 1 Tableta", fontSize = 14.sp)
-                        Text("Día 3 de 7", fontSize = 12.sp, color = Color.DarkGray)
-                    }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF28A745), modifier = Modifier.size(32.dp))
-                        Text("Tomado", color = Color(0xFF28A745), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-            Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).border(1.dp, blueHeader, RoundedCornerShape(12.dp))) {
-                Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Column {
-                        Text("Ibuprofeno", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        Text("02:00 PM • 1 Cápsula", fontSize = 14.sp)
-                        Text("Faltan 5 días", fontSize = 12.sp, color = Color.Gray)
-                    }
-                    Button(onClick = onNavigateToCapture, colors = ButtonDefaults.buttonColors(containerColor = tealButton), shape = RoundedCornerShape(20.dp)) {
-                        Text("Confirmar Toma")
-                    }
-                }
-            }
-            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFD0E2FF)), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Column {
-                        Text("Complejo B", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        Text("09:00 PM • 1 Tableta", fontSize = 14.sp)
-                        Text("Próxima toma", fontSize = 12.sp, color = Color.DarkGray)
-                    }
-                    Icon(Icons.Default.Schedule, contentDescription = null, tint = blueHeader, modifier = Modifier.size(32.dp))
                 }
             }
         }

@@ -6,7 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.compose.ui.platform.ComposeView
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.activityViewModels // IMPORTANTE CAMBIO AQUÍ
+import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
 import com.example.medicare.R
 
@@ -27,7 +27,9 @@ class LoginFragment : Fragment() {
                         findNavController().navigate(R.id.action_login_to_register)
                     },
                     onLoginSuccess = { rol ->
-                        if (rol == "admin") {
+                        val rolLimpio = rol.trim().lowercase()
+
+                        if (rolLimpio == "admin" || rolLimpio == "cuidador" || rolLimpio == "administrador") {
                             findNavController().navigate(R.id.action_login_to_admin)
                         } else {
                             findNavController().navigate(R.id.action_login_to_patient)

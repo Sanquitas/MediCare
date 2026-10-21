@@ -138,7 +138,7 @@ fun LoginScreen(
                     CircularProgressIndicator(color = Color(0xFF207D81))
                 } else {
                     Button(
-                        onClick = { viewModel.login(email, password, selectedRole, onLoginSuccess) },
+                        onClick = { viewModel.login(email, password, selectedRole, onLoginSuccess) }, // Pasamos selectedRole aquí
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF207D81)),
                         shape = RoundedCornerShape(50.dp),
                         modifier = Modifier.fillMaxWidth().height(48.dp)
