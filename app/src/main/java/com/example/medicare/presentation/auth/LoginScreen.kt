@@ -1,5 +1,6 @@
 package com.example.medicare.presentation.auth
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,12 +15,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.medicare.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,7 +32,7 @@ fun LoginScreen(
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var selectedRole by remember { mutableStateOf("paciente") } // "paciente" o "admin"
+    var selectedRole by remember { mutableStateOf("paciente") }
 
     val isLoading = viewModel.isLoading.value
     val errorMessage = viewModel.errorMessage.value
@@ -38,13 +40,9 @@ fun LoginScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(Color(0xFF1E5E72), Color(0xFF1B8272))
-                )
-            )
+            .background(Color.White) // 1. FONDO BLANCO APLICADO AQUÍ
     ) {
-        // Parte Superior
+        // Parte Superior con tu Logo
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -55,31 +53,19 @@ fun LoginScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Box(
+                // TU LOGO
+                Image(
+                    painter = painterResource(id = R.drawable.medicare_logo),
+                    contentDescription = "Logo de MediCare",
                     modifier = Modifier
-                        .size(68.dp)
-                        .background(Color(0xFF26A69A), shape = RoundedCornerShape(16.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(50.dp)
-                            .background(Color.White, shape = RoundedCornerShape(12.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .background(Color(0xFF26A69A), shape = RoundedCornerShape(6.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("+", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
+                        .size(110.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                )
+
                 Spacer(modifier = Modifier.height(12.dp))
-                Text("MediCare", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Bold)
-                Text("Tu salud a tiempo, siempre.", color = Color.White.copy(alpha = 0.9f), fontSize = 14.sp)
+                // 2. TEXTOS OSCURECIDOS PARA HACER CONTRASTE
+                Text("MediCare", color = Color(0xFF1E5E72), fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                Text("Tu salud a tiempo, siempre.", color = Color.Gray, fontSize = 14.sp)
             }
         }
 
@@ -89,7 +75,8 @@ fun LoginScreen(
                 .fillMaxWidth()
                 .weight(0.65f),
             shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp) // 3. SOMBRA PARA SEPARAR LA TARJETA DEL FONDO
         ) {
             Column(
                 modifier = Modifier
@@ -138,7 +125,7 @@ fun LoginScreen(
                     CircularProgressIndicator(color = Color(0xFF207D81))
                 } else {
                     Button(
-                        onClick = { viewModel.login(email, password, selectedRole, onLoginSuccess) }, // Pasamos selectedRole aquí
+                        onClick = { viewModel.login(email, password, selectedRole, onLoginSuccess) },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF207D81)),
                         shape = RoundedCornerShape(50.dp),
                         modifier = Modifier.fillMaxWidth().height(48.dp)

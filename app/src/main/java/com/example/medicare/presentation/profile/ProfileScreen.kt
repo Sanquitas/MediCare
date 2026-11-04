@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.filled.ExitToApp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -130,6 +131,21 @@ fun ProfileScreen(
 
                 Divider(color = Color(0xFFF0F0F0))
                 ConfigItem(icon = Icons.Default.CloudSync, text = "Sincronización con Firebase", hasArrow = false, onClick = onSyncClick)
+                Spacer(modifier = Modifier.weight(1f)) // Esto empuja el botón hasta el fondo de la pantalla
+
+                Button(
+                    onClick = { onLogout() }, // Esta función ya la tienes declarada en los parámetros
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp)
+                        .height(50.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)), // Rojo elegante
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.ExitToApp, contentDescription = "Salir", tint = Color.White)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Salir", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
             }
         }
     }

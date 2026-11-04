@@ -6,6 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.example.medicare.data.local.entities.MedicamentoEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface MedicamentoDao {
@@ -29,4 +30,10 @@ interface MedicamentoDao {
 
     @Query("UPDATE medicamentos_locales SET estado = :estado, isSynced = 0 WHERE id = :id")
     suspend fun updateEstado(id: String, estado: String)
+
+    @Query("UPDATE medicamentos_locales SET estado = 'Tomado', horaToma = :horaToma, fotoLocalUri = :fotoUri, isSynced = 0 WHERE id = :id")
+    suspend fun registrarTomaConFoto(id: String, horaToma: String, fotoUri: String)
+
+    @Query("SELECT * FROM medicamentos_locales")
+    fun getAllMedicamentosLive(): Flow<List<MedicamentoEntity>>
 }

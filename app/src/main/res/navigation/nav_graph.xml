@@ -43,7 +43,7 @@
 
     <fragment
         android:id="@+id/adminDashboardFragment"
-        android:name="com.example.medicare.presentation.admin.AdminDashboardFragment"
+        android:name="com.example.medicare.presentation.admin.dashboard.AdminDashboardFragment"
         android:label="Panel Administrador" />
 
     <fragment

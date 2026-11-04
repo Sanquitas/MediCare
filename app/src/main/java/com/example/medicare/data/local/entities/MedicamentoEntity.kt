@@ -14,5 +14,6 @@ data class MedicamentoEntity(
     val horaToma: String,
     val cantidadRestante: Int,
     val tiempoDesbloqueo: Long,
-    val isSynced: Boolean = false // <-- BANDERA PARA LA PANTALLA DE SINCRONIZACIÓN
+    val fotoLocalUri: String? = null,
+    val isSynced: Boolean = false
 )

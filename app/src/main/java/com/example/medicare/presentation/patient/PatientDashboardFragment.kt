@@ -29,6 +29,7 @@ import com.example.medicare.domain.models.Medicamento
 import com.example.medicare.presentation.profile.AjustesScreen
 import com.example.medicare.presentation.profile.ProfileViewModel
 import com.example.medicare.presentation.profile.ProfileScreen
+import com.example.medicare.presentation.sync.SyncScreen
 
 class PatientDashboardFragment : Fragment() {
     override fun onCreateView(
@@ -98,8 +99,9 @@ class PatientDashboardFragment : Fragment() {
                                     viewModel = profileViewModel,
                                     onNavigateBack = { selectedTab = 0 },
                                     onLogout = {
-                                        findNavController().navigate(R.id.action_login_to_patient)
-                                        findNavController().popBackStack()
+                                        com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
+                                        findNavController().popBackStack(R.id.loginFragment, false)
+                                        findNavController().navigate(R.id.loginFragment)
                                     },
                                     onTratamientosClick = { selectedTab = 0 },
                                     onAjustesClick = { selectedTab = 4 },

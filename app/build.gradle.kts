@@ -3,9 +3,8 @@ plugins {
     id("org.jetbrains.kotlin.android")
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
-
-    // 1. ADIÓS KAPT, HOLA KSP (El compilador moderno para Kotlin 2.0)
-    id("com.google.devtools.ksp") version "2.2.10-1.0.31"}
+    id("com.google.devtools.ksp") version "2.2.0-2.0.2"
+}
 
 android {
     namespace = "com.example.medicare"
@@ -74,15 +73,14 @@ dependencies {
 
     implementation("com.google.android.gms:play-services-location:21.0.1")
 
-    implementation(platform("androidx.compose:compose-bom:2023.10.01"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
 
-    val roomVersion = "2.6.1"
+    val roomVersion = "2.7.2"
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
-
-    add("ksp", "androidx.room:room-compiler:$roomVersion")
+    ksp("androidx.room:room-compiler:$roomVersion")
+    implementation("androidx.navigation:navigation-compose:2.7.7")
 }
