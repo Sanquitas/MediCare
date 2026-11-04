@@ -152,12 +152,11 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
         isLoading.value = true
         val userId = auth.currentUser?.uid ?: return
 
-        // 1. Convertimos y achicamos la foto correctamente
         var fotoBase64 = ""
         try {
             val bitmapOriginal = when (fotoBitmap) {
                 is Bitmap -> fotoBitmap
-                is ImageBitmap -> fotoBitmap.asAndroidBitmap() // ¡ERROR CORREGIDO AQUÍ!
+                is ImageBitmap -> fotoBitmap.asAndroidBitmap()
                 else -> null
             }
 
@@ -183,10 +182,10 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
                 val sdfHoraReal = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.ROOT)
                 val horaTomaReal = sdfHoraReal.format(java.util.Calendar.getInstance().time)
 
-                // 2. Actualizamos Room
-                medicamentoDao.updateEstado(medicamentoId, "Tomado")
+                // Actualizamos Room (Guardando también la hora real)
+                medicamentoDao.updateEstadoYHora(medicamentoId, "Tomado", horaTomaReal)
 
-                // 3. Actualizamos Firebase
+                // Actualizamos Firebase
                 db.collection("usuarios").document(userId)
                     .collection("medicamentos").document(medicamentoId)
                     .update(
@@ -200,7 +199,7 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
                         viewModelScope.launch(Dispatchers.IO) { medicamentoDao.markAsSynced(medicamentoId) }
                     }
 
-                // 4. GENERAMOS LA NUEVA TARJETA
+                // GENERAMOS LA NUEVA TARJETA
                 if (medLocal.cantidadRestante > 1) {
                     val nextHora = calcularProximaHora(medLocal.hora, medLocal.frecuencia)
                     val horasAIncrementar = when (medLocal.frecuencia) {
@@ -273,11 +272,23 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
 
         viewModelScope.launch(Dispatchers.IO) {
             val medLocal = medicamentoDao.getMedicamentoById(medicamentoId) ?: return@launch
-            medicamentoDao.updateEstado(medicamentoId, "Omitido")
 
+            // OBTENEMOS LA HORA EXACTA DE LA OMISIÓN
+            val sdfHoraReal = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.ROOT)
+            val horaTomaReal = sdfHoraReal.format(java.util.Calendar.getInstance().time)
+
+            // ACTUALIZAMOS ROOM CON LA HORA
+            medicamentoDao.updateEstadoYHora(medicamentoId, "Omitido", horaTomaReal)
+
+            // ACTUALIZAMOS FIREBASE
             db.collection("usuarios").document(userId).collection("medicamentos")
                 .document(medicamentoId)
-                .update("estado", "Omitido")
+                .update(
+                    mapOf(
+                        "estado" to "Omitido",
+                        "horaToma" to horaTomaReal
+                    )
+                )
                 .addOnSuccessListener {
                     viewModelScope.launch(Dispatchers.IO) { medicamentoDao.markAsSynced(medicamentoId) }
                 }

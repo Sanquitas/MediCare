@@ -31,6 +31,10 @@ interface MedicamentoDao {
     @Query("UPDATE medicamentos_locales SET estado = :estado, isSynced = 0 WHERE id = :id")
     suspend fun updateEstado(id: String, estado: String)
 
+    // --- FUNCIÓN AÑADIDA PARA ACTUALIZAR ESTADO Y HORA ---
+    @Query("UPDATE medicamentos_locales SET estado = :estado, horaToma = :horaToma, isSynced = 0 WHERE id = :id")
+    suspend fun updateEstadoYHora(id: String, estado: String, horaToma: String)
+
     @Query("UPDATE medicamentos_locales SET estado = 'Tomado', horaToma = :horaToma, fotoLocalUri = :fotoUri, isSynced = 0 WHERE id = :id")
     suspend fun registrarTomaConFoto(id: String, horaToma: String, fotoUri: String)
 

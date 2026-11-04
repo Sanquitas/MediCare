@@ -22,8 +22,16 @@ import androidx.compose.ui.unit.sp
 import com.example.medicare.domain.models.Medicamento
 import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Date
 import java.util.Locale
+
+// Estructura segura para calcular los límites numéricos de cada día
+data class DiaCalendario(
+    val diaSemana: String,
+    val diaNum: String,
+    val mes: String,
+    val inicioDia: Long,
+    val finDia: Long
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,9 +44,9 @@ fun HistorialScreen(
 
     var searchQuery by remember { mutableStateOf("") }
 
-    // 1. GENERAMOS LOS DÍAS REALES DEL CALENDARIO (Últimos 7 días)
+    // 1. GENERAMOS LOS DÍAS REALES CON LÍMITES DE TIEMPO MATEMÁTICOS
     val diasReales = remember {
-        val list = mutableListOf<Triple<String, String, String>>()
+        val list = mutableListOf<DiaCalendario>()
         val cal = Calendar.getInstance()
         cal.add(Calendar.DAY_OF_YEAR, -6) // Retrocedemos 6 días para llegar a hoy
 
@@ -47,39 +55,47 @@ fun HistorialScreen(
         val sdfMes = SimpleDateFormat("MMM", Locale("es", "ES"))
 
         for (i in 0..6) {
+            // Calcular milisegundos exactos de las 00:00:00
+            val startCal = cal.clone() as Calendar
+            startCal.set(Calendar.HOUR_OF_DAY, 0)
+            startCal.set(Calendar.MINUTE, 0)
+            startCal.set(Calendar.SECOND, 0)
+            startCal.set(Calendar.MILLISECOND, 0)
+            val inicioDia = startCal.timeInMillis
+
+            // Calcular milisegundos exactos de las 23:59:59
+            val endCal = cal.clone() as Calendar
+            endCal.set(Calendar.HOUR_OF_DAY, 23)
+            endCal.set(Calendar.MINUTE, 59)
+            endCal.set(Calendar.SECOND, 59)
+            endCal.set(Calendar.MILLISECOND, 999)
+            val finDia = endCal.timeInMillis
+
             val d1 = sdfDiaSemana.format(cal.time).replaceFirstChar { it.uppercase() }
             val d2 = sdfNum.format(cal.time)
             val d3 = sdfMes.format(cal.time).replaceFirstChar { it.uppercase() }
-            list.add(Triple(d1, d2, d3))
+
+            list.add(DiaCalendario(d1, d2, d3, inicioDia, finDia))
             cal.add(Calendar.DAY_OF_YEAR, 1) // Avanzamos un día
         }
         list
     }
 
-    // Por defecto, seleccionamos el último día (que siempre será "Hoy")
+    // Por defecto, seleccionamos el último día (Hoy)
     var selectedDateIndex by remember { mutableStateOf(diasReales.size - 1) }
 
-    // Auto-scroll del calendario para que siempre se vea "Hoy" al entrar
+    // Auto-scroll del calendario
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = diasReales.size - 1)
 
-    // 2. LÓGICA DEL FILTRO DE FECHAS
+    // 2. LÓGICA DEL FILTRO DE FECHAS SEGURO (Milisegundos en lugar de Textos)
     val diaSeleccionado = diasReales[selectedDateIndex]
-    val fechaFiltro = "${diaSeleccionado.second} ${diaSeleccionado.third}" // Ejemplo: "19 Oct"
 
     val medicamentosFiltrados = medicamentos.filter { med ->
-        // Convertimos el tiempoDesbloqueo (Milisegundos) a texto ("19 Oct")
-        val fechaMed = if (med.tiempoDesbloqueo > 0L) {
-            SimpleDateFormat("dd MMM", Locale("es", "ES")).format(Date(med.tiempoDesbloqueo))
-        } else {
-            "" // Manejo para pastillas antiguas de prueba creadas antes de usar Long
-        }
-
         val coincideTexto = med.nombre.contains(searchQuery, ignoreCase = true)
         val estaTerminado = med.estado != "Pendiente"
 
-        // Comparamos si la fecha de la pastilla es igual a la fecha seleccionada en los botones
-        // (Si el tiempoDesbloqueo es 0, lo mostramos siempre para no ocultar tus datos de prueba viejos)
-        val coincideFecha = fechaMed.equals(fechaFiltro, ignoreCase = true) || med.tiempoDesbloqueo == 0L
+        // Verifica si el tiempo de desbloqueo cae exactamente entre las 00:00 y las 23:59 de ese día
+        val coincideFecha = (med.tiempoDesbloqueo in diaSeleccionado.inicioDia..diaSeleccionado.finDia) || med.tiempoDesbloqueo == 0L
 
         coincideTexto && estaTerminado && coincideFecha
     }
@@ -115,13 +131,13 @@ fun HistorialScreen(
                         .width(60.dp)
                         .clip(RoundedCornerShape(16.dp))
                         .background(if (isSelected) blueHeader else Color(0xFFE4E9ED))
-                        .clickable { selectedDateIndex = index } // ¡ACTUALIZA EL FILTRO AL TOCAR!
+                        .clickable { selectedDateIndex = index }
                         .padding(vertical = 12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(dayInfo.first, color = if (isSelected) Color.White else Color.DarkGray, fontSize = 12.sp)
-                    Text(dayInfo.second, color = if (isSelected) Color.White else Color.Black, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    Text(dayInfo.third, color = if (isSelected) Color.White else Color.DarkGray, fontSize = 12.sp)
+                    Text(dayInfo.diaSemana, color = if (isSelected) Color.White else Color.DarkGray, fontSize = 12.sp)
+                    Text(dayInfo.diaNum, color = if (isSelected) Color.White else Color.Black, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(dayInfo.mes, color = if (isSelected) Color.White else Color.DarkGray, fontSize = 12.sp)
                 }
             }
         }
@@ -199,7 +215,7 @@ fun HistorialCard(med: Medicamento) {
         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp).border(1.dp, Color(0xFFEBEBEB), RoundedCornerShape(12.dp))
     ) {
         Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
-            Text("${med.nombre} - ${med.hora}", fontWeight = FontWeight.Medium, fontSize = 16.sp, color = Color(0xFF333333))
+            Text("${med.nombre}\n${med.hora}", fontWeight = FontWeight.Medium, fontSize = 16.sp, color = Color(0xFF333333))
             Spacer(modifier = Modifier.height(12.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {

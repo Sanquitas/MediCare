@@ -33,18 +33,39 @@ class AgregarMedicamentoUseCase(private val repository: PatientRepository) {
     }
 
     private fun obtenerMilisegundosDeHora(horaStr: String): Long {
-        return try {
-            val sdf = SimpleDateFormat("hh:mm a", Locale.ROOT)
-            val date = sdf.parse(horaStr.trim().uppercase(Locale.ROOT)) ?: return System.currentTimeMillis()
-            val calMed = Calendar.getInstance().apply { time = date }
+        val cleanHora = horaStr.trim().uppercase(Locale.ROOT)
 
-            val now = Calendar.getInstance()
-            now.set(Calendar.HOUR_OF_DAY, calMed.get(Calendar.HOUR_OF_DAY))
-            now.set(Calendar.MINUTE, calMed.get(Calendar.MINUTE))
-            now.set(Calendar.SECOND, 0)
-            now.timeInMillis
-        } catch (e: Exception) {
-            System.currentTimeMillis()
-        }
+        // Intentamos primero con formato de 12 horas (ej. 02:30 PM)
+        try {
+            val sdf12 = SimpleDateFormat("hh:mm a", Locale.ROOT)
+            val date = sdf12.parse(cleanHora)
+            if (date != null) {
+                val calMed = Calendar.getInstance().apply { time = date }
+                val now = Calendar.getInstance()
+                now.set(Calendar.HOUR_OF_DAY, calMed.get(Calendar.HOUR_OF_DAY))
+                now.set(Calendar.MINUTE, calMed.get(Calendar.MINUTE))
+                now.set(Calendar.SECOND, 0)
+                now.set(Calendar.MILLISECOND, 0)
+                return now.timeInMillis
+            }
+        } catch (_: Exception) {}
+
+        // Si falla, intentamos con formato de 24 horas (ej. 14:30)
+        try {
+            val sdf24 = SimpleDateFormat("HH:mm", Locale.ROOT)
+            val date = sdf24.parse(cleanHora)
+            if (date != null) {
+                val calMed = Calendar.getInstance().apply { time = date }
+                val now = Calendar.getInstance()
+                now.set(Calendar.HOUR_OF_DAY, calMed.get(Calendar.HOUR_OF_DAY))
+                now.set(Calendar.MINUTE, calMed.get(Calendar.MINUTE))
+                now.set(Calendar.SECOND, 0)
+                now.set(Calendar.MILLISECOND, 0)
+                return now.timeInMillis
+            }
+        } catch (_: Exception) {}
+
+        // Fallback seguro si ninguno coincide
+        return System.currentTimeMillis()
     }
 }
