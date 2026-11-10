@@ -99,8 +99,7 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
 
                 if (med != null) {
                     // Actualizamos Room (Base local)
-                    medicamentoDao.registrarTomaConFoto(medicamentoId, horaRealToma, rutaFoto)
-
+                    medicamentoDao.registrarTomaConFoto(medicamentoId, horaRealToma, rutaFoto, System.currentTimeMillis())
                     // --- 4. SUBIR A FIREBASE (Si cumple la regla de red) ---
                     if (puedeSubirAFirebase) {
                         db.collection("usuarios").document(userId)
@@ -109,7 +108,8 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
                                 mapOf(
                                     "estado" to "Tomado",
                                     "horaToma" to horaRealToma,
-                                    "fotoEvidenciaBase64" to fotoBase64
+                                    "fotoEvidenciaBase64" to fotoBase64,
+                                    "fechaRegistro" to System.currentTimeMillis()
                                 )
                             )
                             .addOnSuccessListener {

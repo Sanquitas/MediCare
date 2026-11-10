@@ -6,9 +6,13 @@ import androidx.lifecycle.viewModelScope
 import com.example.medicare.domain.models.UserPatient
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions // IMPORTACIÓN NECESARIA PARA GUARDAR
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import java.util.UUID
 
 class PacientesViewModel : ViewModel() {
     private val db = FirebaseFirestore.getInstance()
@@ -19,13 +23,11 @@ class PacientesViewModel : ViewModel() {
     var pacientes = mutableStateOf<List<UserPatient>>(emptyList())
         private set
 
-    // --- NUEVAS VARIABLES PARA EL BOTÓN '+' ---
     var todosLosPacientes = mutableStateOf<List<UserPatient>>(emptyList())
         private set
 
     var pacientesAsignadosIds = mutableStateOf<List<String>>(emptyList())
         private set
-    // ------------------------------------------
 
     var searchQuery = mutableStateOf("")
         private set
@@ -48,19 +50,18 @@ class PacientesViewModel : ViewModel() {
             try {
                 val adminId = auth.currentUser?.uid
                 var modoDiscretoActivo = false
-                var asignados = listOf<String>() // NUEVO
+                var asignados = listOf<String>()
 
                 if (adminId != null) {
                     val adminDoc = db.collection("usuarios").document(adminId).get().await()
                     modoDiscretoActivo = adminDoc.getBoolean("modoDiscreto") ?: false
-                    // NUEVO: LEER ASIGNADOS
                     asignados = adminDoc.get("pacientesAsignados") as? List<String> ?: emptyList()
                 }
 
-                pacientesAsignadosIds.value = asignados // NUEVO
+                pacientesAsignadosIds.value = asignados
 
                 val querySnapshot = db.collection("usuarios")
-                    .whereEqualTo("rol", "Paciente")
+                    .whereIn("rol", listOf("Paciente", "paciente"))
                     .get().await()
 
                 val listaPacientes = querySnapshot.documents.mapNotNull { documento ->
@@ -77,12 +78,11 @@ class PacientesViewModel : ViewModel() {
                     paciente
                 }.filter { it.nombre.isNotBlank() }
 
-                todosLosPacientes.value = listaPacientes // NUEVO: Todos los pacientes para el modal
+                todosLosPacientes.value = listaPacientes
 
-                // NUEVO: FILTRAMOS LOS QUE VAMOS A MOSTRAR EN LA LISTA PRINCIPAL
                 val listaFiltrada = listaPacientes.filter { asignados.contains(it.id) }
 
-                pacientesOriginales = listaFiltrada // CAMBIADO PARA USAR LA LISTA FILTRADA
+                pacientesOriginales = listaFiltrada
                 aplicarFiltro(searchQuery.value)
 
             } catch (e: Exception) {
@@ -120,5 +120,95 @@ class PacientesViewModel : ViewModel() {
                 android.util.Log.e("MEDICARE", "Error al guardar asignaciones: ${e.message}")
             }
         }
+    }
+
+    fun agregarMedicamentoAPaciente(
+        pacienteId: String,
+        nombre: String,
+        dosis: String,
+        hora: String,
+        frecuencia: String,
+        cantidadTotal: Int,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            try {
+                val nombreLimpio = nombre.trim()
+
+                val medsSnapshot = db.collection("usuarios")
+                    .document(pacienteId)
+                    .collection("medicamentos")
+                    .get()
+                    .await()
+
+                val yaExiste = medsSnapshot.documents.any { doc ->
+                    val medNombre = doc.getString("nombre") ?: ""
+                    medNombre.trim().equals(nombreLimpio, ignoreCase = true)
+                }
+
+                if (yaExiste) {
+                    onError("El paciente ya tiene registrado un medicamento con el nombre '$nombreLimpio'.")
+                    return@launch
+                }
+
+                val tiempoInicial = obtenerMilisegundosDeHora(hora)
+                val medicamentoId = UUID.randomUUID().toString()
+
+                val nuevoMed = hashMapOf<String, Any>(
+                    "nombre" to nombreLimpio,
+                    "dosis" to dosis.trim(),
+                    "hora" to hora.trim().uppercase(),
+                    "frecuencia" to frecuencia,
+                    "estado" to "Pendiente",
+                    "horaToma" to "",
+                    "cantidadRestante" to cantidadTotal,
+                    "tiempoDesbloqueo" to tiempoInicial
+                )
+
+                db.collection("usuarios").document(pacienteId)
+                    .collection("medicamentos").document(medicamentoId)
+                    .set(nuevoMed)
+                    .await()
+
+                obtenerPacientes()
+                onSuccess()
+            } catch (e: Exception) {
+                onError(e.message ?: "Error al agregar medicamento")
+            }
+        }
+    }
+
+    private fun obtenerMilisegundosDeHora(horaStr: String): Long {
+        val cleanHora = horaStr.trim().uppercase(Locale.ROOT)
+        try {
+            val sdf12 = SimpleDateFormat("hh:mm a", Locale.ROOT)
+            val date = sdf12.parse(cleanHora)
+            if (date != null) {
+                val calMed = Calendar.getInstance().apply { time = date }
+                val now = Calendar.getInstance()
+                now.set(Calendar.HOUR_OF_DAY, calMed.get(Calendar.HOUR_OF_DAY))
+                now.set(Calendar.MINUTE, calMed.get(Calendar.MINUTE))
+                now.set(Calendar.SECOND, 0)
+                now.set(Calendar.MILLISECOND, 0)
+                return now.timeInMillis
+            }
+        } catch (_: Exception) {}
+
+        try {
+            val sdf24 = SimpleDateFormat("HH:mm", Locale.ROOT)
+            val date = sdf24.parse(cleanHora)
+            if (date != null) {
+                val calMed = Calendar.getInstance().apply { time = date }
+                val now = Calendar.getInstance()
+                now.set(Calendar.HOUR_OF_DAY, calMed.get(Calendar.HOUR_OF_DAY))
+                now.set(Calendar.MINUTE, calMed.get(Calendar.MINUTE))
+                now.set(Calendar.SECOND, 0)
+                now.set(Calendar.MILLISECOND, 0)
+                return now.timeInMillis
+            }
+        } catch (_: Exception) {}
+
+        return System.currentTimeMillis()
     }
 }

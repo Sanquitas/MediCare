@@ -149,14 +149,6 @@ fun SyncScreen(
                         colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = tealColor)
                     )
                 }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Sincronizar en segundo plano", fontSize = 14.sp)
-                    Switch(
-                        checked = syncViewModel.isBackgroundSyncEnabled.value,
-                        onCheckedChange = { syncViewModel.toggleBackgroundSync(it) },
-                        colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = tealColor)
-                    )
-                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))

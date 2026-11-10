@@ -92,7 +92,8 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
                         "estado" to med.estado,
                         "horaToma" to med.horaToma,
                         "cantidadRestante" to med.cantidadRestante,
-                        "tiempoDesbloqueo" to med.tiempoDesbloqueo
+                        "tiempoDesbloqueo" to med.tiempoDesbloqueo,
+                        "fechaRegistro" to med.fechaRegistro
                     )
 
                     db.collection("usuarios").document(userId)

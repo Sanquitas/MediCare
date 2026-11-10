@@ -3,11 +3,16 @@ package com.example.medicare.presentation.auth
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import com.example.medicare.data.remote.AuthRepository
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.messaging.FirebaseMessaging
 
 class AuthViewModel : ViewModel() {
 
     // Conectamos el repositorio de datos
     private val repository = AuthRepository()
+    private val auth = FirebaseAuth.getInstance()
+    private val db = FirebaseFirestore.getInstance()
 
     var isLoading = mutableStateOf(false)
         private set
@@ -35,9 +40,24 @@ class AuthViewModel : ViewModel() {
                 val esValidoAdmin = (realRole == "admin" || realRole == "cuidador" || realRole == "administrador") && (rolElegidoLimpio == "admin")
                 val esValidoPaciente = (realRole == "paciente") && (rolElegidoLimpio == "paciente")
 
-                if (esValidoAdmin) onNavigate("admin")
-                else if (esValidoPaciente) onNavigate("patient")
-                else errorMessage.value = "El rol seleccionado no corresponde a esta cuenta."
+                if (esValidoAdmin || esValidoPaciente) {
+                    // ---- CÓDIGO NUEVO: OBTENER Y GUARDAR TOKEN FCM ----
+                    FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            val token = task.result
+                            val userId = auth.currentUser?.uid
+                            if (userId != null) {
+                                db.collection("usuarios").document(userId).update("fcmToken", token)
+                            }
+                        }
+                    }
+                    // ---------------------------------------------------
+
+                    if (esValidoAdmin) onNavigate("admin")
+                    else onNavigate("patient")
+                } else {
+                    errorMessage.value = "El rol seleccionado no corresponde a esta cuenta."
+                }
             },
             onError = { errorMsg ->
                 isLoading.value = false

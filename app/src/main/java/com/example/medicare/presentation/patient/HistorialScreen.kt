@@ -94,8 +94,9 @@ fun HistorialScreen(
         val coincideTexto = med.nombre.contains(searchQuery, ignoreCase = true)
         val estaTerminado = med.estado != "Pendiente"
 
-        // Verifica si el tiempo de desbloqueo cae exactamente entre las 00:00 y las 23:59 de ese día
-        val coincideFecha = (med.tiempoDesbloqueo in diaSeleccionado.inicioDia..diaSeleccionado.finDia) || med.tiempoDesbloqueo == 0L
+
+        val fechaRef = if (med.fechaRegistro != 0L) med.fechaRegistro else med.tiempoDesbloqueo
+        val coincideFecha = fechaRef in diaSeleccionado.inicioDia..diaSeleccionado.finDia
 
         coincideTexto && estaTerminado && coincideFecha
     }

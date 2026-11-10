@@ -10,5 +10,6 @@ data class Medicamento(
     val horaToma: String = "",
     val cantidadRestante: Int = 1,
     val tiempoDesbloqueo: Long = 0L,
-    val fotoEvidenciaBase64: String = ""
+    val fotoEvidenciaBase64: String = "",
+    val fechaRegistro: Long = 0L
 )

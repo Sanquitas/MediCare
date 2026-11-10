@@ -13,9 +13,11 @@ import com.example.medicare.data.remote.PatientRepository
 import com.example.medicare.domain.models.Medicamento
 import com.example.medicare.domain.models.UserPatient
 import com.example.medicare.domain.usecase.AgregarMedicamentoUseCase
+import com.example.medicare.presentation.patient.notifications.AlarmScheduler
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -25,10 +27,12 @@ import java.util.UUID
 class PatientViewModel(application: Application) : AndroidViewModel(application) {
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
-
     private val medicamentoDao = MedicareDatabase.getDatabase(application).medicamentoDao()
-    private val repository = PatientRepository(medicamentoDao)
+
+    private val repository = PatientRepository(medicamentoDao, application)
     private val agregarMedicamentoUseCase = AgregarMedicamentoUseCase(repository)
+
+    private val UNA_HORA_MS = 60 * 60 * 1000L
 
     var patientData = mutableStateOf(UserPatient())
         private set
@@ -44,6 +48,8 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
 
     init {
         cargarDatosDelPaciente()
+        cargarMedicamentosLocales()
+        iniciarVerificacionPeriodicaOmision()
     }
 
     private fun cargarDatosDelPaciente() {
@@ -69,11 +75,85 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
                     )
                 }
                 cargarMedicamentosLocales()
+                sincronizarMedicamentosDesdeFirestore(userId)
             }
             .addOnFailureListener { e ->
                 isLoading.value = false
                 errorMessage.value = "Error al cargar perfil: ${e.localizedMessage}"
             }
+    }
+
+    private fun sincronizarMedicamentosDesdeFirestore(userId: String) {
+        db.collection("usuarios").document(userId).collection("medicamentos")
+            .addSnapshotListener { snapshot, e ->
+                if (e != null || snapshot == null) return@addSnapshotListener
+
+                viewModelScope.launch(Dispatchers.IO) {
+                    for (doc in snapshot.documents) {
+                        val medId = doc.id
+                        val nombre = doc.getString("nombre") ?: continue
+                        val dosis = doc.getString("dosis") ?: ""
+                        val hora = doc.getString("hora") ?: ""
+                        val frecuencia = doc.getString("frecuencia") ?: ""
+                        val estado = doc.getString("estado") ?: "Pendiente"
+                        val horaToma = doc.getString("horaToma") ?: ""
+                        val cantidadRestante = doc.getLong("cantidadRestante")?.toInt() ?: 0
+                        val tiempoDesbloqueo = doc.getLong("tiempoDesbloqueo") ?: 0L
+
+                        val me = medicamentoDao.getMedicamentoById(medId)
+                        if (me == null) {
+                            val nuevaEntidad = com.example.medicare.data.local.entities.MedicamentoEntity(
+                                id = medId,
+                                nombre = nombre,
+                                dosis = dosis,
+                                hora = hora,
+                                frecuencia = frecuencia,
+                                estado = estado,
+                                horaToma = horaToma,
+                                cantidadRestante = cantidadRestante,
+                                tiempoDesbloqueo = tiempoDesbloqueo,
+                                isSynced = true
+                            )
+                            medicamentoDao.insertMedicamento(nuevaEntidad)
+
+                            if (estado == "Pendiente") {
+                                val scheduler = AlarmScheduler(getApplication())
+                                scheduler.programarAlarma(
+                                    id = medId,
+                                    nombre = nombre,
+                                    dosis = dosis,
+                                    tiempoMilisegundos = tiempoDesbloqueo
+                                )
+                            }
+                        } else {
+                            if (me.estado != estado) {
+                                medicamentoDao.updateEstadoYHora(medId, estado, horaToma, System.currentTimeMillis())
+                            }
+                        }
+                    }
+                }
+            }
+    }
+
+    private fun verificarOmisionesAutomaticas(lista: List<Medicamento>) {
+        val ahora = System.currentTimeMillis()
+        for (med in lista) {
+            if (med.estado == "Pendiente") {
+                val limiteOmision = med.tiempoDesbloqueo + UNA_HORA_MS
+                if (ahora >= limiteOmision) {
+                    omitirMedicamento(med.id)
+                }
+            }
+        }
+    }
+
+    private fun iniciarVerificacionPeriodicaOmision() {
+        viewModelScope.launch {
+            while (true) {
+                delay(30_000L)
+                verificarOmisionesAutomaticas(medicamentosDelDia.toList())
+            }
+        }
     }
 
     private fun cargarMedicamentosLocales() {
@@ -89,7 +169,8 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
                         estado = entidad.estado,
                         horaToma = entidad.horaToma,
                         cantidadRestante = entidad.cantidadRestante,
-                        tiempoDesbloqueo = entidad.tiempoDesbloqueo
+                        tiempoDesbloqueo = entidad.tiempoDesbloqueo,
+                        fechaRegistro = entidad.fechaRegistro
                     )
                 }
 
@@ -97,6 +178,8 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
                     medicamentosDelDia.clear()
                     medicamentosDelDia.addAll(listaMapeada)
                     isLoading.value = false
+
+                    verificarOmisionesAutomaticas(listaMapeada)
                 }
             }
         }
@@ -182,30 +265,29 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
                 val sdfHoraReal = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.ROOT)
                 val horaTomaReal = sdfHoraReal.format(java.util.Calendar.getInstance().time)
 
-                // Actualizamos Room (Guardando también la hora real)
-                medicamentoDao.updateEstadoYHora(medicamentoId, "Tomado", horaTomaReal)
+                medicamentoDao.updateEstadoYHora(medicamentoId, "Tomado", horaTomaReal, System.currentTimeMillis())
 
-                // Actualizamos Firebase
                 db.collection("usuarios").document(userId)
                     .collection("medicamentos").document(medicamentoId)
                     .update(
                         mapOf(
                             "estado" to "Tomado",
                             "horaToma" to horaTomaReal,
-                            "fotoEvidenciaBase64" to fotoBase64
+                            "fotoEvidenciaBase64" to fotoBase64,
+                            "fechaRegistro" to System.currentTimeMillis()
                         )
                     )
                     .addOnSuccessListener {
                         viewModelScope.launch(Dispatchers.IO) { medicamentoDao.markAsSynced(medicamentoId) }
                     }
 
-                // GENERAMOS LA NUEVA TARJETA
                 if (medLocal.cantidadRestante > 1) {
                     val nextHora = calcularProximaHora(medLocal.hora, medLocal.frecuencia)
                     val horasAIncrementar = when (medLocal.frecuencia) {
                         "Cada 4 horas" -> 4; "Cada 6 horas" -> 6; "Cada 8 horas" -> 8
                         "Cada 12 horas" -> 12; else -> 24
                     }
+
                     val cooldownMillis = horasAIncrementar * 60 * 60 * 1000L
                     val nextTiempoDesbloqueo = System.currentTimeMillis() + cooldownMillis
                     val nuevoId = UUID.randomUUID().toString()
@@ -234,8 +316,17 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
                         "cantidadRestante" to (medLocal.cantidadRestante - 1),
                         "tiempoDesbloqueo" to nextTiempoDesbloqueo
                     )
+
                     db.collection("usuarios").document(userId).collection("medicamentos")
                         .document(nuevoId).set(nextMedFirebase)
+
+                    val scheduler = AlarmScheduler(getApplication())
+                    scheduler.programarAlarma(
+                        id = nuevoId,
+                        nombre = medLocal.nombre,
+                        dosis = medLocal.dosis,
+                        tiempoMilisegundos = nextTiempoDesbloqueo
+                    )
                 }
 
                 launch(Dispatchers.Main) {
@@ -273,20 +364,18 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch(Dispatchers.IO) {
             val medLocal = medicamentoDao.getMedicamentoById(medicamentoId) ?: return@launch
 
-            // OBTENEMOS LA HORA EXACTA DE LA OMISIÓN
             val sdfHoraReal = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.ROOT)
             val horaTomaReal = sdfHoraReal.format(java.util.Calendar.getInstance().time)
 
-            // ACTUALIZAMOS ROOM CON LA HORA
-            medicamentoDao.updateEstadoYHora(medicamentoId, "Omitido", horaTomaReal)
+            medicamentoDao.updateEstadoYHora(medicamentoId, "Omitido", horaTomaReal, System.currentTimeMillis())
 
-            // ACTUALIZAMOS FIREBASE
             db.collection("usuarios").document(userId).collection("medicamentos")
                 .document(medicamentoId)
                 .update(
                     mapOf(
                         "estado" to "Omitido",
-                        "horaToma" to horaTomaReal
+                        "horaToma" to horaTomaReal,
+                        "fechaRegistro" to System.currentTimeMillis()
                     )
                 )
                 .addOnSuccessListener {
@@ -334,6 +423,14 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
                     .addOnSuccessListener {
                         viewModelScope.launch(Dispatchers.IO) { medicamentoDao.markAsSynced(nuevoId) }
                     }
+
+                val scheduler = AlarmScheduler(getApplication())
+                scheduler.programarAlarma(
+                    id = nuevoId,
+                    nombre = medLocal.nombre,
+                    dosis = medLocal.dosis,
+                    tiempoMilisegundos = nextTiempoDesbloqueo
+                )
             }
         }
     }

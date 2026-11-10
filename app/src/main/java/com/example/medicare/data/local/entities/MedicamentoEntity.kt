@@ -15,5 +15,6 @@ data class MedicamentoEntity(
     val cantidadRestante: Int,
     val tiempoDesbloqueo: Long,
     val fotoLocalUri: String? = null,
-    val isSynced: Boolean = false
+    val isSynced: Boolean = false,
+    val fechaRegistro: Long = 0L
 )

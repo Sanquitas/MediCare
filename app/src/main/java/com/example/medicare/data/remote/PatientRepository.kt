@@ -1,5 +1,6 @@
 package com.example.medicare.data.remote
 
+import android.content.Context
 import com.example.medicare.data.local.dao.MedicamentoDao
 import com.example.medicare.data.local.entities.MedicamentoEntity
 import com.google.firebase.auth.FirebaseAuth
@@ -9,7 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.UUID
 
-class PatientRepository(private val medicamentoDao: MedicamentoDao) {
+class PatientRepository(private val medicamentoDao: MedicamentoDao, private val context: Context) {
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()
 
@@ -42,6 +43,17 @@ class PatientRepository(private val medicamentoDao: MedicamentoDao) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 medicamentoDao.insertMedicamento(entidadLocal)
+
+                // ---- CÓDIGO NUEVO (PASO 4: ALARMA DE LA PRIMERA TOMA) ----
+                val tiempo = nuevoMed["tiempoDesbloqueo"].toString().toLongOrNull() ?: 0L
+                val scheduler = com.example.medicare.presentation.patient.notifications.AlarmScheduler(context)
+                scheduler.programarAlarma(
+                    id = medicamentoId,
+                    nombre = nuevoMed["nombre"].toString(),
+                    dosis = nuevoMed["dosis"].toString(),
+                    tiempoMilisegundos = tiempo
+                )
+                // -----------------------------------------------------------
 
                 launch(Dispatchers.Main) { onSuccess() }
 

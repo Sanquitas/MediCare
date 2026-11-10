@@ -4,28 +4,18 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.fragment.findNavController
 import com.example.medicare.R
-import com.example.medicare.domain.models.Medicamento
 import com.example.medicare.presentation.profile.AjustesScreen
 import com.example.medicare.presentation.profile.ProfileViewModel
 import com.example.medicare.presentation.profile.ProfileScreen
@@ -87,9 +77,6 @@ class PatientDashboardFragment : Fragment() {
                                     onNavigateToCapture = { medicamentoId ->
                                         val bundle = Bundle().apply { putString("MEDICAMENTO_ID", medicamentoId) }
                                         findNavController().navigate(R.id.action_patient_to_capture, bundle)
-                                    },
-                                    onAgregarMedicamento = { nombre, dosis, hora, frecuencia, cantidad ->
-                                        viewModel.agregarMedicamento(nombre, dosis, hora, frecuencia, cantidad)
                                     },
                                     verificarHora = { tiempoDesbloqueo -> System.currentTimeMillis() >= tiempoDesbloqueo },
                                     onOmitirMedicamento = { id -> viewModel.omitirMedicamento(id) }
