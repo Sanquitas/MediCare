@@ -24,10 +24,19 @@ import java.util.UUID
 data class PacienteMonitoreo(
     val pacienteId: String,
     val nombrePaciente: String,
-    val medicamentos: List<Medicamento>
+    val medicamentos: List<Medicamento>,
+    // Tomas marcadas como "Omitido" dentro de los últimos DIAS_REVISION días
+    val omisionesRecientes: List<Medicamento> = emptyList()
 )
 
 class MonitoreoViewModel(application: Application) : AndroidViewModel(application) {
+    companion object {
+        // Ventana de días que se revisa para contar omisiones
+        const val DIAS_REVISION = 7
+        // A partir de cuántas omisiones se marca al paciente con alerta
+        const val UMBRAL_OMISIONES = 3
+    }
+
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
     private val context = application.applicationContext
@@ -105,13 +114,16 @@ class MonitoreoViewModel(application: Application) : AndroidViewModel(applicatio
                     }
                 }
 
+                val limiteRevision = System.currentTimeMillis() - DIAS_REVISION * 24 * 60 * 60 * 1000L
+
                 val listaFinal = mapaNombres.map { (userId, nombreFinal) ->
                     val todosMeds = medicamentosAgrupados[userId] ?: emptyList()
                     val soloFinalizados = todosMeds.filter { it.estado == "Tomado" || it.estado == "Omitido" }
                     PacienteMonitoreo(
                         pacienteId = userId,
                         nombrePaciente = nombreFinal,
-                        medicamentos = soloFinalizados
+                        medicamentos = soloFinalizados,
+                        omisionesRecientes = todosMeds.filter { it.estado == "Omitido" && it.fechaRegistro >= limiteRevision }
                     )
                 }
 
@@ -180,6 +192,63 @@ class MonitoreoViewModel(application: Application) : AndroidViewModel(applicatio
                 onError(e.message ?: "Error al agregar medicamento")
             }
         }
+    }
+
+    fun enviarMensajeAPaciente(
+        pacienteId: String,
+        texto: String,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        val adminId = auth.currentUser?.uid
+        if (adminId == null) {
+            onError("No hay usuario logueado.")
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val adminDoc = db.collection("usuarios").document(adminId).get().await()
+                val nombreAdmin = adminDoc.getString("nombre") ?: "Tu cuidador"
+
+                val nuevoMensaje = hashMapOf<String, Any>(
+                    "texto" to texto.trim(),
+                    "remitenteId" to adminId,
+                    "remitenteNombre" to nombreAdmin,
+                    "fecha" to System.currentTimeMillis(),
+                    "leido" to false
+                )
+
+                db.collection("usuarios").document(pacienteId)
+                    .collection("mensajes")
+                    .add(nuevoMensaje)
+                    .await()
+
+                onSuccess()
+            } catch (e: Exception) {
+                onError(e.message ?: "Error al enviar el mensaje")
+            }
+        }
+    }
+
+    // Texto que se propone al cuidador para avisar al paciente de sus omisiones
+    fun generarMensajeSugerido(paciente: PacienteMonitoreo): String {
+        val nombre = paciente.nombrePaciente.trim().substringBefore(" ")
+        if (paciente.omisionesRecientes.isEmpty()) {
+            return "Hola $nombre, "
+        }
+
+        val detalle = paciente.omisionesRecientes
+            .groupingBy { it.nombre }
+            .eachCount()
+            .entries
+            .joinToString(", ") { (medicamento, veces) ->
+                if (veces == 1) "$medicamento (1 vez)" else "$medicamento ($veces veces)"
+            }
+
+        return "Hola $nombre, notamos que en los últimos $DIAS_REVISION días omitiste " +
+                "${paciente.omisionesRecientes.size} tomas: $detalle. " +
+                "Recuerda tomar tus medicamentos a tiempo. Si tienes algún problema, avísanos."
     }
 
     private fun obtenerMilisegundosDeHora(horaStr: String): Long {

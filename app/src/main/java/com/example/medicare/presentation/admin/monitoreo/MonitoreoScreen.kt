@@ -1,5 +1,6 @@
 package com.example.medicare.presentation.admin.monitoreo
 
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -47,6 +49,8 @@ fun MonitoreoScreen(
     val isLoading = viewModel.isLoading.value
 
     var showAddDialog by remember { mutableStateOf(false) }
+    var pacienteAMensajear by remember { mutableStateOf<PacienteMonitoreo?>(null) }
+    val context = LocalContext.current
 
     val opcionesPacientes = remember(pacientesMonitoreo) {
         pacientesMonitoreo.map { PacienteOpcion(it.pacienteId, it.nombrePaciente) }
@@ -125,6 +129,38 @@ fun MonitoreoScreen(
                                     } else {
                                         Text("Sin tomas registradas (Tomadas u Omitidas) aún", fontSize = 12.sp, color = Color.Gray)
                                     }
+
+                                    val omisiones = paciente.omisionesRecientes.size
+                                    if (omisiones >= MonitoreoViewModel.UMBRAL_OMISIONES) {
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Row(
+                                            modifier = Modifier
+                                                .background(Color(0xFFF8D7DA), RoundedCornerShape(8.dp))
+                                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFF721C24), modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                "Omitió $omisiones tomas en los últimos ${MonitoreoViewModel.DIAS_REVISION} días",
+                                                fontSize = 12.sp,
+                                                color = Color(0xFF721C24),
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    OutlinedButton(
+                                        onClick = { pacienteAMensajear = paciente },
+                                        shape = RoundedCornerShape(20.dp),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                        modifier = Modifier.height(32.dp)
+                                    ) {
+                                        Icon(Icons.Default.Sms, contentDescription = null, tint = tealButton, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Enviar mensaje", fontSize = 12.sp, color = tealButton)
+                                    }
                                 }
                             }
                         }
@@ -172,6 +208,80 @@ fun MonitoreoScreen(
             }
         )
     }
+
+    pacienteAMensajear?.let { paciente ->
+        EnviarMensajeDialog(
+            nombrePaciente = paciente.nombrePaciente,
+            textoInicial = viewModel.generarMensajeSugerido(paciente),
+            onDismiss = { pacienteAMensajear = null },
+            onConfirm = { texto, onError ->
+                viewModel.enviarMensajeAPaciente(
+                    pacienteId = paciente.pacienteId,
+                    texto = texto,
+                    onSuccess = {
+                        pacienteAMensajear = null
+                        Toast.makeText(context, "Mensaje enviado a ${paciente.nombrePaciente}", Toast.LENGTH_SHORT).show()
+                    },
+                    onError = onError
+                )
+            }
+        )
+    }
+}
+
+@Composable
+fun EnviarMensajeDialog(
+    nombrePaciente: String,
+    textoInicial: String,
+    onDismiss: () -> Unit,
+    onConfirm: (texto: String, onError: (String) -> Unit) -> Unit
+) {
+    var texto by remember { mutableStateOf(textoInicial) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var enviando by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Mensaje para $nombrePaciente", fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = texto,
+                    onValueChange = { texto = it },
+                    label = { Text("Mensaje") },
+                    minLines = 4,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                errorMessage?.let {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(it, color = Color.Red, fontSize = 12.sp)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (texto.isBlank()) {
+                        errorMessage = "El mensaje no puede estar vacío."
+                    } else {
+                        enviando = true
+                        errorMessage = null
+                        onConfirm(texto) { errorMsg ->
+                            enviando = false
+                            errorMessage = errorMsg
+                        }
+                    }
+                },
+                enabled = !enviando,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF137A7F))
+            ) {
+                Text(if (enviando) "Enviando..." else "Enviar", color = Color.White)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
+        }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
