@@ -11,11 +11,14 @@ import androidx.lifecycle.viewModelScope
 import com.example.medicare.data.local.MedicareDatabase
 import com.example.medicare.data.remote.PatientRepository
 import com.example.medicare.domain.models.Medicamento
+import com.example.medicare.domain.models.MensajeCuidador
 import com.example.medicare.domain.models.UserPatient
 import com.example.medicare.domain.usecase.AgregarMedicamentoUseCase
 import com.example.medicare.presentation.patient.notifications.AlarmScheduler
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.Query
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -46,10 +49,49 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
     var errorMessage = mutableStateOf<String?>(null)
         private set
 
+    // Mensajes enviados por el cuidador, del más reciente al más antiguo
+    var mensajes = mutableStateListOf<MensajeCuidador>()
+        private set
+
+    private var mensajesListener: ListenerRegistration? = null
+
     init {
         cargarDatosDelPaciente()
         cargarMedicamentosLocales()
         iniciarVerificacionPeriodicaOmision()
+        escucharMensajesDelCuidador()
+    }
+
+    private fun escucharMensajesDelCuidador() {
+        val userId = auth.currentUser?.uid ?: return
+
+        mensajesListener = db.collection("usuarios").document(userId).collection("mensajes")
+            .orderBy("fecha", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, e ->
+                if (e != null || snapshot == null) return@addSnapshotListener
+
+                val lista = snapshot.documents.mapNotNull { doc ->
+                    doc.toObject(MensajeCuidador::class.java)?.apply { id = doc.id }
+                }
+                mensajes.clear()
+                mensajes.addAll(lista)
+            }
+    }
+
+    fun marcarMensajesComoLeidos() {
+        val userId = auth.currentUser?.uid ?: return
+        val noLeidos = mensajes.filter { !it.leido }
+        if (noLeidos.isEmpty()) return
+
+        val batch = db.batch()
+        val mensajesRef = db.collection("usuarios").document(userId).collection("mensajes")
+        noLeidos.forEach { batch.update(mensajesRef.document(it.id), "leido", true) }
+        batch.commit()
+    }
+
+    override fun onCleared() {
+        mensajesListener?.remove()
+        super.onCleared()
     }
 
     private fun cargarDatosDelPaciente() {

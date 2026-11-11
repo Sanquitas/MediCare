@@ -35,6 +35,8 @@ class PatientDashboardFragment : Fragment() {
                     val perfil = viewModel.patientData.value
                     val medicamentos = viewModel.medicamentosDelDia
                     val isLoading = viewModel.isLoading.value
+                    val mensajes = viewModel.mensajes
+                    val mensajesNoLeidos = mensajes.count { !it.leido }
 
                     var selectedTab by remember { mutableStateOf(0) }
 
@@ -52,6 +54,18 @@ class PatientDashboardFragment : Fragment() {
                                     label = { Text("Historial", color = if(selectedTab == 1) Color(0xFF2C699A) else Color.Gray) },
                                     selected = selectedTab == 1,
                                     onClick = { selectedTab = 1 }
+                                )
+                                NavigationBarItem(
+                                    icon = {
+                                        BadgedBox(badge = {
+                                            if (mensajesNoLeidos > 0) Badge { Text("$mensajesNoLeidos") }
+                                        }) {
+                                            Icon(Icons.Default.Sms, contentDescription = null, tint = if(selectedTab == 5) Color(0xFF2C699A) else Color.Gray)
+                                        }
+                                    },
+                                    label = { Text("Mensajes", color = if(selectedTab == 5) Color(0xFF2C699A) else Color.Gray) },
+                                    selected = selectedTab == 5,
+                                    onClick = { selectedTab = 5 }
                                 )
                                 NavigationBarItem(
                                     icon = { Icon(Icons.Default.Person, contentDescription = null, tint = if(selectedTab == 2) Color(0xFF2C699A) else Color.Gray) },
@@ -96,6 +110,10 @@ class PatientDashboardFragment : Fragment() {
                                 )
                                 3 -> SyncScreen()
                                 4 -> AjustesScreen(onNavigateBack = { selectedTab = 2 })
+                                5 -> MensajesScreen(
+                                    mensajes = mensajes,
+                                    onMarcarComoLeidos = { viewModel.marcarMensajesComoLeidos() }
+                                )
                             }
                         }
                     }
